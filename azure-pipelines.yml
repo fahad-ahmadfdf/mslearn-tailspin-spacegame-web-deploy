@@ -3,7 +3,7 @@ trigger:
 
 variables:
   buildConfiguration: 'Release'
-  releaseBranchName: 'release-pipeline'
+  releaseBranchName: 'release'
 
 schedules:
 - cron: '0 3 * * *'
@@ -82,7 +82,7 @@ stages:
     pool: MultiStage Pipeline
     environment: dev
     variables:
-    - group: Production Test
+    - group: 'Release'
     strategy:
       runOnce:
         deploy:
@@ -100,7 +100,7 @@ stages:
     pool: MultiStage Pipeline
     environment: test
     variables:
-    - group: 'Production Test'
+    - group: 'Release'
     strategy:
       runOnce:
         deploy:
@@ -116,51 +116,10 @@ stages:
     pool: MultiStage Pipeline
     environment: staging
     variables:
-    - group: 'Production Test'
+    - group: 'Release'
     strategy:
       runOnce:
         deploy:
           steps:
           - download: current
             artifact: drop
-
-- stage: 'Production'
-  displayName: 'Production Migration Test'
-  dependsOn: Staging
-  jobs:
-  - deployment: 'Migrate to Prod'
-    pool : MultiStage Pipeline
-    environment: production 
-    variables: 
-     AppType: 'IISWebsite'
-     AppName: 'WebApp'
-     AppPool: 'IISPool'
-     PhysicalPath: '--'
-     VirtualPath: '--'
-     Binding: '8080'
-     VirtualApplication: 'AspNetDemo'
-
-     strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: drop
-          - task: IISWebAppManagementOnMachineGroup@0
-            displayName: 'IIS Web App Prod Deployment'
-            inputs:
-              IISDeploymentType: '$(Parameters.IISWebsite)'
-              ActionIISWebsite: '$(Parameters.ActionIISWebsite)'
-              WebsiteName: '$(Parameters.WebApp)'
-              WebsitePhysicalPath: '$(Parameters.PhysicalPath)'
-              AddBinding: $(Parameters.Binding)
-              ParentWebsiteNameForVD: '$(Parameters.WebsiteName)'
-              VirtualPathForVD: '$(Parameters.VirtualPath)'
-              AppPoolName: '$(Parameters.AppPool)'
-
-          - task: IISWebAppDeploymentOnMachineGroup@0
-            displayName: 'IIS Web App Production Deploy'
-            inputs:
-              WebSiteName: '$(Parameters.WebAPP)'
-              VirtualApplication: '$(Parameters.VirtualApplication)'
-              Package: '$(Parameters.Package)'
