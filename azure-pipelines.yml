@@ -1,14 +1,12 @@
 trigger:
-- master
-
-pool:
-  vmImage: 'windows-latest'
+- '*'
 
 variables:
   solution: '**/*.sln'
   buildConfiguration: 'Release'
   deployPath: '\\testing-server\c$\Inetpub\wwwroot\YourWebApp'
-  serviceConnection: 'YourServiceConnectionName'
+  serviceConnection: 'fdf_dv_tst-FDF-DV-TSTS'
+
 
 stages:
 - stage: Build
