@@ -63,11 +63,11 @@ stages:
         command: 'publish'
         projects: '**/*.csproj'
         publishWebProjects: true
-        arguments: '--no-build --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/$(buildConfiguration)'
+        arguments: '-o $(Build.ArtifactStagingDirectory)/publish'
         zipAfterPublish: true
 
     - publish: '$(Build.ArtifactStagingDirectory)'
-      artifact: drop
+      artifact: publish
 
 - stage: 'Dev'
   displayName: 'Deploy to the dev environment'
