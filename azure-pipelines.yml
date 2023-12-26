@@ -4,7 +4,7 @@ trigger:
 variables:
   solution: '**/*.sln'
   buildConfiguration: 'Release'
-  deployPath: '\\testing-server\c$\Inetpub\wwwroot\YourWebApp'
+  deployPath: '\\10.38.10.247\c$\Inetpub\wwwroot\testsite'
   serviceConnection: 'fdf_dv_tst-FDF-DV-TSTS'
 
 
