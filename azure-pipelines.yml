@@ -14,6 +14,7 @@ stages:
   jobs:
   - job: Build
     displayName: 'Build Job'
+    pool: MultiStage Pipeline
     steps:
     - script: |
         # Your build steps here
@@ -25,6 +26,7 @@ stages:
   jobs:
   - job: Deploy
     displayName: 'Deploy Job'
+    pool: MultiStage Pipeline
     steps:
     - task: UseDotNet@2
       displayName: 'Use .NET Core SDK'
