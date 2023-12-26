@@ -1,150 +1,68 @@
 trigger:
-- '*'
- 
-variables:
-  buildConfiguration: 'Release'
-  releaseBranchName: 'release'
-  serviceConnection: 'fdf_dv_tst-FDF-DV-TSTS'
+- master
 
-schedules:
-- cron: '0 3 * * *'
-  displayName: 'Deploy every day at 3 A.M.'
-  branches:
-    include:
-    - release
-  always: false 
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'
+  buildConfiguration: 'Release'
+  deployPath: '\\testing-server\c$\Inetpub\wwwroot\YourWebApp'
+  serviceConnection: 'YourServiceConnectionName'
 
 stages:
-- stage: 'Build'
-  displayName: 'Build the web application'
-  jobs: 
-  - job: 'Build'
-    displayName: 'Build job'
-    pool: MultiStage Pipeline
+- stage: Build
+  displayName: 'Build Stage'
+  jobs:
+  - job: Build
+    displayName: 'Build Job'
+    steps:
+    - script: |
+        # Your build steps here
+        echo "Building the application"
+      displayName: 'Build'
 
-    variables:
-      wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
-      dotnetSdkVersion: '6.x'
-
+- stage: Deploy
+  displayName: 'Deploy Stage'
+  jobs:
+  - job: Deploy
+    displayName: 'Deploy Job'
     steps:
     - task: UseDotNet@2
-      displayName: 'Use .NET SDK $(dotnetSdkVersion)'
+      displayName: 'Use .NET Core SDK'
       inputs:
-        version: '$(dotnetSdkVersion)'
-
-    - task: Npm@1
-      displayName: 'Run npm install'
-      inputs:
-        verbose: false
-
-    - script: './node_modules/.bin/node-sass $(wwwrootDir) --output $(wwwrootDir)'
-      displayName: 'Compile Sass assets'
-
-    - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
-      displayName: 'Write build info'
-      workingDirectory: $(wwwrootDir)
+        version: '3.x'
+        installationPath: $(Agent.ToolsDirectory)/dotnet
 
     - task: DotNetCoreCLI@2
-      displayName: 'Restore project dependencies'
-      inputs:
-        command: 'restore'
-        projects: '**/*.csproj'
-
-    - task: DotNetCoreCLI@2
-      displayName: 'Build the project - $(buildConfiguration)'
-      inputs:
-        command: 'build'
-        arguments: '--no-restore --configuration $(buildConfiguration)'
-        projects: '**/*.csproj'
-
-    - task: DotNetCoreCLI@2
-      displayName: 'Publish the project - $(buildConfiguration)'
+      displayName: 'Restore and Publish'
       inputs:
         command: 'publish'
-        projects: '**/*.csproj'
         publishWebProjects: true
+        projects: '$(solution)'
         arguments: '-o $(Build.ArtifactStagingDirectory)/publish'
         zipAfterPublish: true
 
-    - publish: '$(Build.ArtifactStagingDirectory)'
-      artifact: drop
+    - task: CopyFiles@2
+      displayName: 'Copy Files to Deploy Path'
+      inputs:
+        SourceFolder: '$(Build.ArtifactStagingDirectory)/publish'
+        Contents: '**'
+        TargetFolder: '$(System.ArtifactsDirectory)/publish'
 
-- stage: 'Dev'
-  displayName: 'Deploy to the dev environment'
-  dependsOn: Build
-  condition: |
-    and
-    (
-      succeeded(),
-      eq(variables['Build.SourceBranchName'], variables['releaseBranchName'])
-    )
-  jobs:
-  - deployment: Deploy
-    pool: MultiStage Pipeline
-    environment: dev
-    variables:
-    - group: Release
-   
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: drop
+    - task: PowerShell@2
+      displayName: 'Deploy to Testing Server'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Copy files to the testing server using the service connection
+          Copy-Item -Path $(System.ArtifactsDirectory)/publish/* -Destination $(deployPath) -Recurse
+      env:
+        PSModulePath: $(PSModulePath)
 
-          - task: CopyFiles@2
-            displayName: 'Copy Files to Deploy Path'
-            inputs:
-              SourceFolder: '$(Build.ArtifactStagingDirectory)/publish'
-              Contents: '**'
-              TargetFolder: '$(System.ArtifactsDirectory)/publish'
-
-          - task: PowerShell@2
-            displayName: 'Deploy to Testing Server'
-            inputs:
-              targetType: 'inline'
-              script: |
-                # Copy files to the testing server using the service connection
-                Copy-Item -Path $(System.ArtifactsDirectory)/publish/* -Destination $(deployPath) -Recurse
-            env:
-              PSModulePath: $(PSModulePath)
-
-          - task: CopyFiles@2
-            displayName: 'Copy Files to Testing Server'
-            inputs:
-              SourceFolder: '$(System.ArtifactsDirectory)/publish'
-              Contents: '**'
-              TargetFolder: '$(deployPath)'
-          
-- stage: 'Test'
-  displayName: 'Deploy to the test environment'
-  dependsOn: Dev
-  #condition: eq(variables['Build.Reason'], 'Schedule')
-  jobs:
-  - deployment: Deploy
-    pool: MultiStage Pipeline
-    environment: test
-    variables:
-    - group: 'Release'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: drop
-         
-- stage: 'Staging'
-  displayName: 'Deploy to the staging environment'
-  dependsOn: Test
-  jobs:
-  - deployment: Deploy
-    pool: MultiStage Pipeline
-    environment: staging
-    variables:
-    - group: 'Release'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: drop
+    - task: CopyFiles@2
+      displayName: 'Copy Files to Testing Server'
+      inputs:
+        SourceFolder: '$(System.ArtifactsDirectory)/publish'
+        Contents: '**'
+        TargetFolder: '$(deployPath)'
